@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Music, Search } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Music, Search, Plus, ListPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
 
 const Index = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -11,6 +12,10 @@ const Index = () => {
   const [volume, setVolume] = useState(75);
   const [currentTrack, setCurrentTrack] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [playlist, setPlaylist] = useState([]);
+  const [queue, setQueue] = useState([]);
+  const [activeTab, setActiveTab] = useState('tracks'); // 'tracks', 'playlist', 'queue'
+  const { toast } = useToast();
 
   const tracks = [
     {
@@ -88,6 +93,49 @@ const Index = () => {
     setIsPlaying(true);
   };
 
+  const addToPlaylist = (track) => {
+    if (!playlist.find(p => p.id === track.id)) {
+      setPlaylist(prev => [...prev, track]);
+      toast({
+        title: "Added to Playlist",
+        description: `${track.title} has been added to your playlist`,
+      });
+    } else {
+      toast({
+        title: "Already in Playlist",
+        description: `${track.title} is already in your playlist`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const addToQueue = (track) => {
+    setQueue(prev => [...prev, track]);
+    toast({
+      title: "Added to Queue",
+      description: `${track.title} has been added to queue`,
+    });
+  };
+
+  const removeFromPlaylist = (trackId) => {
+    setPlaylist(prev => prev.filter(track => track.id !== trackId));
+  };
+
+  const removeFromQueue = (index) => {
+    setQueue(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const playFromPlaylist = (track) => {
+    const originalIndex = tracks.findIndex(t => t.id === track.id);
+    selectTrack(originalIndex);
+  };
+
+  const playFromQueue = (track, queueIndex) => {
+    const originalIndex = tracks.findIndex(t => t.id === track.id);
+    selectTrack(originalIndex);
+    removeFromQueue(queueIndex);
+  };
+
   // Simulate time progress
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -106,6 +154,81 @@ const Index = () => {
   }, [isPlaying, duration]);
 
   const currentTrackData = tracks[currentTrack];
+
+  const renderTrackItem = (track, index, source = 'tracks') => (
+    <div
+      key={`${source}-${track.id}`}
+      className={`p-4 rounded-xl transition-all duration-200 hover:bg-white/20 ${
+        source === 'tracks' && tracks.findIndex(t => t.id === track.id) === currentTrack 
+          ? 'bg-purple-600/30 border border-purple-400/50' 
+          : 'bg-white/5'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <img
+          src={track.image}
+          alt={track.album}
+          className="w-12 h-12 rounded-lg cursor-pointer"
+          onClick={() => {
+            if (source === 'playlist') playFromPlaylist(track);
+            else if (source === 'queue') playFromQueue(track, index);
+            else selectTrack(tracks.findIndex(t => t.id === track.id));
+          }}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="font-medium truncate">{track.title}</p>
+          <p className="text-sm text-purple-200 truncate">{track.artist}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-purple-300">{track.duration}</span>
+          {source === 'tracks' && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => addToPlaylist(track)}
+                className="text-purple-300 hover:text-white hover:bg-purple-600/30 p-2"
+                title="Add to Playlist"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => addToQueue(track)}
+                className="text-purple-300 hover:text-white hover:bg-purple-600/30 p-2"
+                title="Add to Queue"
+              >
+                <ListPlus className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+          {source === 'playlist' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => removeFromPlaylist(track.id)}
+              className="text-red-400 hover:text-white hover:bg-red-600/30 p-2"
+              title="Remove from Playlist"
+            >
+              ×
+            </Button>
+          )}
+          {source === 'queue' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => removeFromQueue(index)}
+              className="text-red-400 hover:text-white hover:bg-red-600/30 p-2"
+              title="Remove from Queue"
+            >
+              ×
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
@@ -205,54 +328,88 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Playlist Sidebar */}
+          {/* Sidebar with Tabs */}
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20">
-            <h2 className="text-2xl font-bold mb-6 text-center">Now Playing</h2>
-            
-            {/* Search Input */}
-            <div className="relative mb-6">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-300 w-4 h-4" />
-              <Input
-                type="text"
-                placeholder="Search tracks, artists, albums..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-white/10 border-purple-300/30 text-white placeholder:text-purple-300 focus:border-purple-400 focus:ring-purple-400"
-              />
+            {/* Tab Navigation */}
+            <div className="flex gap-2 mb-6">
+              <Button
+                variant={activeTab === 'tracks' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveTab('tracks')}
+                className={activeTab === 'tracks' ? 'bg-purple-600 text-white' : 'text-purple-300 hover:text-white'}
+              >
+                Tracks
+              </Button>
+              <Button
+                variant={activeTab === 'playlist' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveTab('playlist')}
+                className={activeTab === 'playlist' ? 'bg-purple-600 text-white' : 'text-purple-300 hover:text-white'}
+              >
+                Playlist ({playlist.length})
+              </Button>
+              <Button
+                variant={activeTab === 'queue' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveTab('queue')}
+                className={activeTab === 'queue' ? 'bg-purple-600 text-white' : 'text-purple-300 hover:text-white'}
+              >
+                Queue ({queue.length})
+              </Button>
             </div>
+            
+            {/* Search Input - only show for tracks tab */}
+            {activeTab === 'tracks' && (
+              <div className="relative mb-6">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-300 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Search tracks, artists, albums..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-white/10 border-purple-300/30 text-white placeholder:text-purple-300 focus:border-purple-400 focus:ring-purple-400"
+                />
+              </div>
+            )}
 
+            {/* Content based on active tab */}
             <div className="space-y-3">
-              {filteredTracks.length === 0 ? (
-                <div className="text-center py-8 text-purple-300">
-                  <Music className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>No tracks found</p>
-                </div>
-              ) : (
-                filteredTracks.map((track, index) => {
-                  const originalIndex = tracks.findIndex(t => t.id === track.id);
-                  return (
-                    <div
-                      key={track.id}
-                      onClick={() => selectTrack(originalIndex)}
-                      className={`p-4 rounded-xl cursor-pointer transition-all duration-200 hover:bg-white/20 ${
-                        originalIndex === currentTrack ? 'bg-purple-600/30 border border-purple-400/50' : 'bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={track.image}
-                          alt={track.album}
-                          className="w-12 h-12 rounded-lg"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{track.title}</p>
-                          <p className="text-sm text-purple-200 truncate">{track.artist}</p>
-                        </div>
-                        <span className="text-sm text-purple-300">{track.duration}</span>
-                      </div>
-                    </div>
-                  );
-                })
+              {activeTab === 'tracks' && (
+                filteredTracks.length === 0 ? (
+                  <div className="text-center py-8 text-purple-300">
+                    <Music className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No tracks found</p>
+                  </div>
+                ) : (
+                  filteredTracks.map((track) => {
+                    const originalIndex = tracks.findIndex(t => t.id === track.id);
+                    return renderTrackItem(track, originalIndex, 'tracks');
+                  })
+                )
+              )}
+
+              {activeTab === 'playlist' && (
+                playlist.length === 0 ? (
+                  <div className="text-center py-8 text-purple-300">
+                    <Music className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Your playlist is empty</p>
+                    <p className="text-sm mt-2">Add tracks using the + button</p>
+                  </div>
+                ) : (
+                  playlist.map((track, index) => renderTrackItem(track, index, 'playlist'))
+                )
+              )}
+
+              {activeTab === 'queue' && (
+                queue.length === 0 ? (
+                  <div className="text-center py-8 text-purple-300">
+                    <Music className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Queue is empty</p>
+                    <p className="text-sm mt-2">Add tracks to queue for next play</p>
+                  </div>
+                ) : (
+                  queue.map((track, index) => renderTrackItem(track, index, 'queue'))
+                )
               )}
             </div>
           </div>
