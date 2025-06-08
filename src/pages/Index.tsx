@@ -1,8 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Music } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Music, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 
 const Index = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -10,6 +10,7 @@ const Index = () => {
   const [duration, setDuration] = useState(240); // 4 minutes default
   const [volume, setVolume] = useState(75);
   const [currentTrack, setCurrentTrack] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const tracks = [
     {
@@ -53,6 +54,13 @@ const Index = () => {
       image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop"
     }
   ];
+
+  // Filter tracks based on search query
+  const filteredTracks = tracks.filter(track =>
+    track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    track.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    track.album.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -200,29 +208,52 @@ const Index = () => {
           {/* Playlist Sidebar */}
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20">
             <h2 className="text-2xl font-bold mb-6 text-center">Now Playing</h2>
+            
+            {/* Search Input */}
+            <div className="relative mb-6">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-300 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search tracks, artists, albums..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-white/10 border-purple-300/30 text-white placeholder:text-purple-300 focus:border-purple-400 focus:ring-purple-400"
+              />
+            </div>
+
             <div className="space-y-3">
-              {tracks.map((track, index) => (
-                <div
-                  key={track.id}
-                  onClick={() => selectTrack(index)}
-                  className={`p-4 rounded-xl cursor-pointer transition-all duration-200 hover:bg-white/20 ${
-                    index === currentTrack ? 'bg-purple-600/30 border border-purple-400/50' : 'bg-white/5'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={track.image}
-                      alt={track.album}
-                      className="w-12 h-12 rounded-lg"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{track.title}</p>
-                      <p className="text-sm text-purple-200 truncate">{track.artist}</p>
-                    </div>
-                    <span className="text-sm text-purple-300">{track.duration}</span>
-                  </div>
+              {filteredTracks.length === 0 ? (
+                <div className="text-center py-8 text-purple-300">
+                  <Music className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No tracks found</p>
                 </div>
-              ))}
+              ) : (
+                filteredTracks.map((track, index) => {
+                  const originalIndex = tracks.findIndex(t => t.id === track.id);
+                  return (
+                    <div
+                      key={track.id}
+                      onClick={() => selectTrack(originalIndex)}
+                      className={`p-4 rounded-xl cursor-pointer transition-all duration-200 hover:bg-white/20 ${
+                        originalIndex === currentTrack ? 'bg-purple-600/30 border border-purple-400/50' : 'bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={track.image}
+                          alt={track.album}
+                          className="w-12 h-12 rounded-lg"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{track.title}</p>
+                          <p className="text-sm text-purple-200 truncate">{track.artist}</p>
+                        </div>
+                        <span className="text-sm text-purple-300">{track.duration}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
